@@ -19,6 +19,7 @@ and ``"functional_remove":``. Check the existing code for examples.
 
 # pylint: disable=redefined-outer-name
 import logging
+import warnings
 from pathlib import Path
 
 import pytest
@@ -63,9 +64,9 @@ def test_functional_config_loading(
     configuration_path: str,
     default_configuration: PylintConfiguration,
     file_to_lint_path: str,
-    capsys: CaptureFixture,
+    capsys: CaptureFixture[str],
     caplog: LogCaptureFixture,
-):
+) -> None:
     """Functional tests for configurations."""
     # logging is helpful to see what's expected and why. The output of the
     # program is checked during the test so printing messes with the result.
@@ -78,9 +79,13 @@ def test_functional_config_loading(
     expected_loaded_configuration = get_expected_configuration(
         configuration_path, default_configuration
     )
-    mock_exit, _, runner = run_using_a_configuration_file(
-        configuration_path, file_to_lint_path
-    )
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message="The use of 'MASTER'.*", category=UserWarning
+        )
+        mock_exit, _, runner = run_using_a_configuration_file(
+            configuration_path, file_to_lint_path
+        )
     mock_exit.assert_called_once_with(expected_code)
     out, err = capsys.readouterr()
     # 'rstrip()' applied, so we can have a final newline in the expected test file

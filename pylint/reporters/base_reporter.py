@@ -36,6 +36,7 @@ class BaseReporter:
                 "Using the __implements__ inheritance pattern for BaseReporter is no "
                 "longer supported. Child classes should only inherit BaseReporter",
                 DeprecationWarning,
+                stacklevel=2,
             )
         self.linter: PyLinter
         self.section = 0
@@ -50,11 +51,11 @@ class BaseReporter:
 
     def set_output(self, output: TextIO | None = None) -> None:
         """Set output stream."""
-        # pylint: disable-next=fixme
         # TODO: 3.0: Remove deprecated method
         warn(
             "'set_output' will be removed in 3.0, please use 'reporter.out = stream' instead",
             DeprecationWarning,
+            stacklevel=2,
         )
         self.out = output or sys.stdout
 

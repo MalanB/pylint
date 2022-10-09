@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from pytest import CaptureFixture
 
-from pylint.config.exceptions import _UnrecognizedOptionError
+from pylint.interfaces import CONFIDENCE_LEVEL_NAMES
 from pylint.lint import Run as LintRun
 from pylint.testutils._run import _Run as Run
 from pylint.testutils.configuration_test import run_using_a_configuration_file
@@ -60,23 +60,25 @@ def test_unknown_message_id(capsys: CaptureFixture) -> None:
     """Check that we correctly raise a message on an unknown id."""
     Run([str(EMPTY_MODULE), "--disable=12345"], exit=False)
     output = capsys.readouterr()
-    assert "Command line:1:0: E0012: Bad option value for --disable." in output.out
+    assert "Command line:1:0: W0012: Unknown option value for '--disable'" in output.out
 
 
 def test_unknown_option_name(capsys: CaptureFixture) -> None:
     """Check that we correctly raise a message on an unknown option."""
-    with pytest.raises(_UnrecognizedOptionError):
+    with pytest.raises(SystemExit):
         Run([str(EMPTY_MODULE), "--unknown-option=yes"], exit=False)
     output = capsys.readouterr()
-    assert "E0015: Unrecognized option found: unknown-option=yes" in output.out
+    assert "usage: pylint" in output.err
+    assert "Unrecognized option" in output.err
 
 
 def test_unknown_short_option_name(capsys: CaptureFixture) -> None:
     """Check that we correctly raise a message on an unknown short option."""
-    with pytest.raises(_UnrecognizedOptionError):
+    with pytest.raises(SystemExit):
         Run([str(EMPTY_MODULE), "-Q"], exit=False)
     output = capsys.readouterr()
-    assert "E0015: Unrecognized option found: Q" in output.out
+    assert "usage: pylint" in output.err
+    assert "Unrecognized option" in output.err
 
 
 def test_unknown_confidence(capsys: CaptureFixture) -> None:
@@ -85,6 +87,12 @@ def test_unknown_confidence(capsys: CaptureFixture) -> None:
         Run([str(EMPTY_MODULE), "--confidence=UNKNOWN_CONFIG"], exit=False)
     output = capsys.readouterr()
     assert "argument --confidence: UNKNOWN_CONFIG should be in" in output.err
+
+
+def test_empty_confidence() -> None:
+    """An empty confidence value indicates all errors should be emitted."""
+    r = Run([str(EMPTY_MODULE), "--confidence="], exit=False)
+    assert r.linter.config.confidence == CONFIDENCE_LEVEL_NAMES
 
 
 def test_unknown_yes_no(capsys: CaptureFixture) -> None:
@@ -103,8 +111,47 @@ def test_unknown_py_version(capsys: CaptureFixture) -> None:
     assert "the-newest has an invalid format, should be a version string." in output.err
 
 
+def test_regex_error(capsys: CaptureFixture) -> None:
+    """Check that we correctly error when an an option is passed whose value is an invalid regular expression."""
+    with pytest.raises(SystemExit):
+        Run(
+            [str(EMPTY_MODULE), r"--function-rgx=[\p{Han}a-z_][\p{Han}a-z0-9_]{2,30}$"],
+            exit=False,
+        )
+    output = capsys.readouterr()
+    assert (
+        r"Error in provided regular expression: [\p{Han}a-z_][\p{Han}a-z0-9_]{2,30}$ beginning at index 1: bad escape \p"
+        in output.err
+    )
+
+
+def test_csv_regex_error(capsys: CaptureFixture) -> None:
+    """Check that we correctly error when an option is passed and one
+    of its comma-separated regular expressions values is an invalid regular expression.
+    """
+    with pytest.raises(SystemExit):
+        Run(
+            [str(EMPTY_MODULE), r"--bad-names-rgx=(foo{1,3})"],
+            exit=False,
+        )
+    output = capsys.readouterr()
+    assert (
+        r"Error in provided regular expression: (foo{1 beginning at index 0: missing ), unterminated subpattern"
+        in output.err
+    )
+
+
 def test_short_verbose(capsys: CaptureFixture) -> None:
     """Check that we correctly handle the -v flag."""
     Run([str(EMPTY_MODULE), "-v"], exit=False)
     output = capsys.readouterr()
     assert "Using config file" in output.err
+
+
+def test_argument_separator() -> None:
+    """Check that we support using '--' to separate argument types.
+
+    Reported in https://github.com/PyCQA/pylint/issues/7003.
+    """
+    runner = Run(["--", str(EMPTY_MODULE)], exit=False)
+    assert not runner.linter.stats.by_msg

@@ -104,14 +104,14 @@ def test_exclusivity_of_msgids() -> None:
     err_msg = (
         "{} has the same prefix ('{}') as the '{}' checker. Please make sure the prefix "
         "is unique for each checker. You can use 'script/get_unused_message_id_category.py' "
-        "to get an unique id."
+        "to get a unique id."
     )
     runner = Run(["--enable-all-extensions", EMPTY_FILE], exit=False)
 
     # Some pairs are hard-coded as they are pre-existing and non-exclusive,
     # and we don't want to rename them for backwards compatibility
     checker_id_pairs = {
-        "00": ("master", "miscellaneous"),
+        "00": ("main", "miscellaneous"),
         "01": (
             "basic",
             "refactoring",
@@ -127,10 +127,12 @@ def test_exclusivity_of_msgids() -> None:
         "07": ("exceptions", "broad_try_clause", "overlap-except"),
         "12": ("design", "logging"),
         "17": ("async", "refactoring"),
-        "20": ("compare-to-zero", "refactoring"),
+        "20": ("compare-to-zero", "empty-comment"),
     }
 
     for msgid, definition in runner.linter.msgs_store._messages_definitions.items():
+        if definition.shared:
+            continue
         if msgid[1:3] in checker_id_pairs:
             assert (
                 definition.checker_name in checker_id_pairs[msgid[1:3]]

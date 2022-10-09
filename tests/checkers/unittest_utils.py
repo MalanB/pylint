@@ -11,6 +11,7 @@ import pytest
 from astroid import nodes
 
 from pylint.checkers import utils
+from pylint.checkers.base_checker import BaseChecker
 
 
 @pytest.mark.parametrize(
@@ -24,7 +25,7 @@ from pylint.checkers import utils
         ("mybuiltin", False),
     ],
 )
-def testIsBuiltin(name, expected):
+def testIsBuiltin(name: str, expected: bool) -> None:
     assert utils.is_builtin(name) == expected
 
 
@@ -478,9 +479,9 @@ def test_deprecation_is_inside_lambda() -> None:
 def test_deprecation_check_messages() -> None:
     with pytest.warns(DeprecationWarning) as records:
 
-        class Checker:  # pylint: disable=unused-variable
+        class Checker(BaseChecker):  # pylint: disable=unused-variable
             @utils.check_messages("my-message")
-            def visit_assname(self, node):
+            def visit_assname(self, node: nodes.NodeNG) -> None:
                 pass
 
         assert len(records) == 1
@@ -488,3 +489,29 @@ def test_deprecation_check_messages() -> None:
             records[0].message.args[0]
             == "utils.check_messages will be removed in favour of calling utils.only_required_for_messages in pylint 3.0"
         )
+
+
+def test_is_typing_literal() -> None:
+    code = astroid.extract_node(
+        """
+    from typing import Literal as Lit, Set as Literal
+    import typing as t
+
+    Literal #@
+    Lit #@
+    t.Literal #@
+    """
+    )
+
+    assert not utils.is_typing_literal(code[0])
+    assert utils.is_typing_literal(code[1])
+    assert utils.is_typing_literal(code[2])
+
+    code = astroid.extract_node(
+        """
+    Literal #@
+    typing.Literal #@
+    """
+    )
+    assert not utils.is_typing_literal(code[0])
+    assert not utils.is_typing_literal(code[1])

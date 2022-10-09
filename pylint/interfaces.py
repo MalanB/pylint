@@ -57,6 +57,7 @@ class Interface:
             "Interface and all of its subclasses have been deprecated "
             "and will be removed in pylint 3.0.",
             DeprecationWarning,
+            stacklevel=2,
         )
 
     @classmethod
@@ -73,11 +74,12 @@ def implements(
     interface: type[Interface] | tuple[type[Interface], ...],
 ) -> bool:
     """Does the given object (maybe an instance or class) implement the interface."""
-    # TODO: 3.0: Remove deprecated function # pylint: disable=fixme
+    # TODO: 3.0: Remove deprecated function
     warnings.warn(
         "implements has been deprecated in favour of using basic "
         "inheritance patterns without using __implements__.",
         DeprecationWarning,
+        stacklevel=2,
     )
     implements_ = getattr(obj, "__implements__", ())
     if not isinstance(implements_, (list, tuple)):

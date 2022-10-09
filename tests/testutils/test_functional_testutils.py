@@ -22,7 +22,7 @@ DATA_DIRECTORY = HERE / "data"
 
 @pytest.fixture(name="pytest_config")
 def pytest_config_fixture() -> MagicMock:
-    def _mock_getoption(option):
+    def _mock_getoption(option: str) -> bool:
         if option == "minimal_messages_config":
             return True
         return False
@@ -45,7 +45,7 @@ def test_get_functional_test_files_from_directory() -> None:
         get_functional_test_files_from_directory(DATA_DIRECTORY)
 
 
-def test_minimal_messages_config_enabled(pytest_config) -> None:
+def test_minimal_messages_config_enabled(pytest_config: MagicMock) -> None:
     """Test that all messages not targeted in the functional test are disabled
     when running with --minimal-messages-config.
     """
@@ -62,12 +62,13 @@ def test_minimal_messages_config_enabled(pytest_config) -> None:
             # Always enable fatal errors: important not to have false negatives
             "astroid-error",
             "fatal",
+            "syntax-error",
         )
     )
     assert not mod_test._linter.is_message_enabled("unused-import")
 
 
-def test_minimal_messages_config_excluded_file(pytest_config) -> None:
+def test_minimal_messages_config_excluded_file(pytest_config: MagicMock) -> None:
     """Test that functional test files can be excluded from the run with
     --minimal-messages-config if they set the exclude_from_minimal_messages_config
     option in their rcfile.

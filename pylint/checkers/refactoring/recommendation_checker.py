@@ -9,6 +9,7 @@ from astroid import nodes
 
 from pylint import checkers
 from pylint.checkers import utils
+from pylint.interfaces import INFERENCE
 
 
 class RecommendationChecker(checkers.BaseChecker):
@@ -60,6 +61,12 @@ class RecommendationChecker(checkers.BaseChecker):
             "which could potentially be a f-string. The use of f-strings is preferred. "
             "Requires Python 3.6 and ``py-version >= 3.6``.",
         ),
+        "C0210": (
+            "Use '%s' to do an augmented assign directly",
+            "consider-using-augmented-assign",
+            "Emitted when an assignment is referring to the object that it is assigning "
+            "to. This can be changed to be an augmented assign.",
+        ),
     }
 
     def open(self) -> None:
@@ -67,7 +74,7 @@ class RecommendationChecker(checkers.BaseChecker):
         self._py36_plus = py_version >= (3, 6)
 
     @staticmethod
-    def _is_builtin(node, function):
+    def _is_builtin(node: nodes.NodeNG, function: str) -> bool:
         inferred = utils.safe_infer(node)
         if not inferred:
             return False
@@ -104,7 +111,9 @@ class RecommendationChecker(checkers.BaseChecker):
             self.add_message("consider-iterating-dictionary", node=node)
 
     def _check_use_maxsplit_arg(self, node: nodes.Call) -> None:
-        """Add message when accessing first or last elements of a str.split() or str.rsplit()."""
+        """Add message when accessing first or last elements of a str.split() or
+        str.rsplit().
+        """
 
         # Check if call is split() or rsplit()
         if not (
@@ -392,6 +401,12 @@ class RecommendationChecker(checkers.BaseChecker):
             if "\\" in node.parent.right.as_string():
                 return
 
+            # If % applied to another type than str, it's modulo and can't be replaced by formatting
+            if not hasattr(node.parent.left, "value") or not isinstance(
+                node.parent.left.value, str
+            ):
+                return
+
             inferred_right = utils.safe_infer(node.parent.right)
 
             # If dicts or lists of length > 1 are used
@@ -408,4 +423,17 @@ class RecommendationChecker(checkers.BaseChecker):
                 node=node,
                 line=node.lineno,
                 col_offset=node.col_offset,
+            )
+
+    @utils.only_required_for_messages("consider-using-augmented-assign")
+    def visit_assign(self, node: nodes.Assign) -> None:
+        is_aug, op = utils.is_augmented_assign(node)
+        if is_aug:
+            self.add_message(
+                "consider-using-augmented-assign",
+                args=f"{op}=",
+                node=node,
+                line=node.lineno,
+                col_offset=node.col_offset,
+                confidence=INFERENCE,
             )
